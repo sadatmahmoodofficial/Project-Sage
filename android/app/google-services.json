@@ -1,0 +1,46 @@
+{
+  "project_info": {
+    "project_number": "300005889763",
+    "project_id": "sage-68406",
+    "storage_bucket": "sage-68406.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:300005889763:android:8ec6641ce6d66e933f57d6",
+        "android_client_info": {
+          "package_name": "com.example.sage"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "300005889763-sm6j59uu6qsksag2pl7mch27lgb9lr7t.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBurgDKxqkVDwIfk9s8gRzPm2cOlFt-uVQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "300005889763-sm6j59uu6qsksag2pl7mch27lgb9lr7t.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "300005889763-73haj03g22s3i2gh5sr1n6mmvgevlgbo.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.sage"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
