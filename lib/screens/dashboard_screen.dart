@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../services/firestore_repository.dart';
 import '../models/device_settings.dart';
 import '../models/air_quality_log.dart';
+import 'control_screen.dart'; // Import your IoT control screen
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -125,6 +126,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
             );
           },
+        ),
+
+        const SizedBox(height: 24),
+
+        // 3. IoT Desk Reminder Control Shortcut Card
+        const Text('Hardware Control', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        Card(
+          child: ListTile(
+            leading: const Icon(Icons.lightbulb, color: Colors.tealAccent, size: 32),
+            title: const Text('IoT Desk Reminder'),
+            subtitle: const Text('Toggle hardware LED & view sync state'),
+            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const ControlScreen()),
+              );
+            },
+          ),
         ),
       ],
     );

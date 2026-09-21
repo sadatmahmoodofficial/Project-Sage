@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/firestore_repository.dart';
 import '../models/device_settings.dart';
+import 'control_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -36,8 +38,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
 
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Threshold ranges synced to device')),
+      const SnackBar(content: Text('Threshold ranges synced successfully')),
     );
+  }
+
+  Future<void> _syncWaterTimesToControl(List<String> times) async {
+    await FirebaseFirestore.instance
+        .collection('control')
+        .doc('device')
+        .set({'water_intake_times': times}, SetOptions(merge: true));
   }
 
   Future<void> _addWaterTime(List<String> currentTimes) async {
@@ -59,14 +68,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
         final newTimes = List<String>.from(currentTimes)
           ..add(formattedTime)
           ..sort();
-        _repo.updateWaterIntakeTimes(_userId, newTimes);
+        await _repo.updateWaterIntakeTimes(_userId, newTimes);
+        await _syncWaterTimesToControl(newTimes);
       }
     }
   }
 
-  void _removeWaterTime(List<String> currentTimes, String timeToRemove) {
+  void _removeWaterTime(List<String> currentTimes, String timeToRemove) async {
     final newTimes = List<String>.from(currentTimes)..remove(timeToRemove);
-    _repo.updateWaterIntakeTimes(_userId, newTimes);
+    await _repo.updateWaterIntakeTimes(_userId, newTimes);
+    await _syncWaterTimesToControl(newTimes);
   }
 
   @override
@@ -81,7 +92,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         final DeviceSettings settings = snapshot.data ??
             DeviceSettings(
               waterIntakeTimes: ['08:00', '12:00', '17:00'],
-              screenTimeInterval: 1200,
+              screenTimeInterval: 120, // 2 minutes default
               airQualityThresholds: {
                 'good_max_ppm': 600,
                 'bad_max_ppm': 1000,
@@ -101,6 +112,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         return ListView(
           padding: const EdgeInsets.all(16),
           children: [
+            // Device Status Card
             Card(
               child: ListTile(
                 leading: Icon(
@@ -117,24 +129,56 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
               ),
             ),
+            const SizedBox(height: 12),
+
+            // Manual Hardware Control Navigation Card
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.tune, color: Colors.tealAccent),
+                title: const Text(
+                  'Manual Hardware Control',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
+                subtitle: const Text('Toggle LEDs and screen tracking'),
+                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const ControlScreen()),
+                  );
+                },
+              ),
+            ),
             const SizedBox(height: 16),
 
+            // Screen Time Interval Slider (2 min to 60 min, step: 2 min)
             const Text(
               'Screen Time Interval',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             Slider(
-              value: (settings.screenTimeInterval / 60).clamp(10, 120).toDouble(),
-              min: 10,
-              max: 120,
-              divisions: 11,
+              value: (settings.screenTimeInterval / 60).clamp(2, 60).toDouble(),
+              min: 2,
+              max: 60,
+              divisions: 29, // 2-minute steps: (60 - 2) / 2
               label: '${(settings.screenTimeInterval / 60).round()} mins',
               activeColor: Colors.tealAccent,
-              onChanged: (val) =>
-                  _repo.updateScreenTimeInterval(_userId, (val * 60).toInt()),
+              onChanged: (val) {
+                final int roundedMinutes = ((val / 2).round()) * 2;
+                final int totalSeconds = roundedMinutes * 60;
+
+                _repo.updateScreenTimeInterval(_userId, totalSeconds);
+
+                // Sync directly to control/device for immediate ESP32 pickup
+                FirebaseFirestore.instance
+                    .collection('control')
+                    .doc('device')
+                    .set({'screen_interval_sec': totalSeconds}, SetOptions(merge: true));
+              },
             ),
             const Divider(),
 
+            // Water Intake Times Section
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -162,6 +206,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             const Divider(),
 
+            // Air Quality Threshold Ranges
             const Text(
               'Air Quality Threshold Ranges (PPM)',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
@@ -197,7 +242,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const SizedBox(height: 8),
             Text(
               'Hazardous: Any level above ${_moderateController.text.isEmpty ? "1000" : _moderateController.text} PPM',
-              style: const TextStyle(color: Colors.redAccent, fontSize: 13, fontWeight: FontWeight.w500),
+              style: const TextStyle(
+                color: Colors.redAccent,
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+              ),
             ),
             const SizedBox(height: 12),
             ElevatedButton(
@@ -210,6 +259,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             const Divider(),
 
+            // Data Retention
             const ListTile(
               title: Text('Data Retention'),
               subtitle: Text('Cloud logs auto-delete after 30 days'),
