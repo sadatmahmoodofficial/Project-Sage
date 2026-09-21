@@ -22,11 +22,17 @@ jobs:
           mkdir -p build/ios/SourcePackages
           mkdir -p build/macos/SourcePackages
 
-      - name: Disable SPM for Flutter (Force CocoaPods)
+      - name: Disable SPM for Flutter
         run: flutter config --no-enable-swift-package-manager
 
       - name: Install Flutter Dependencies
         run: flutter pub get
+
+      - name: Update CocoaPods Repo Specs
+        run: |
+          cd ios
+          pod repo update
+          cd ..
 
       - name: Build iOS App
         run: flutter build ios --release --no-codesign
