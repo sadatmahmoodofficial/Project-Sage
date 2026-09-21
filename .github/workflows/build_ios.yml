@@ -5,7 +5,7 @@ on:
 
 jobs:
   build-ios:
-    runs-on: macos-14
+    runs-on: macos-13 # Standardized on Xcode 15 / stable Swift 5 environment
 
     steps:
       - name: Checkout Code
@@ -22,17 +22,11 @@ jobs:
           mkdir -p build/ios/SourcePackages
           mkdir -p build/macos/SourcePackages
 
-      - name: Disable SPM for Flutter
+      - name: Disable SPM
         run: flutter config --no-enable-swift-package-manager
 
       - name: Install Flutter Dependencies
         run: flutter pub get
-
-      - name: Update CocoaPods Repo Specs
-        run: |
-          cd ios
-          pod repo update
-          cd ..
 
       - name: Build iOS App
         run: flutter build ios --release --no-codesign
