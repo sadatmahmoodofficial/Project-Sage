@@ -29,7 +29,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       // Only alert if it's recent (within the last minute) to avoid spamming old logs on startup
       if (latest.timestamp.isAfter(DateTime.now().subtract(const Duration(minutes: 1)))) {
         if (latest.thresholdStatus == 'bad' || latest.thresholdStatus == 'worst') {
-          NotificationService.instance.showAlert(
+          NotificationService.instance.showNotification(
             id: 1,
             title: 'Air Quality Alert!',
             body: 'Air quality is ${latest.thresholdStatus} (${latest.ppmValue} PPM). Device buzzing now.',
@@ -79,4 +79,24 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       ),
     );
   }
+}
+
+class DashboardScreen extends StatelessWidget {
+  const DashboardScreen({super.key});
+  @override Widget build(BuildContext context) => const Center(child: Text("Dashboard"));
+}
+
+class AirQualityScreen extends StatelessWidget {
+  const AirQualityScreen({super.key});
+  @override Widget build(BuildContext context) => const Center(child: Text("Air Quality"));
+}
+
+class WaterLogScreen extends StatelessWidget {
+  const WaterLogScreen({super.key});
+  @override Widget build(BuildContext context) => const Center(child: Text("Water Log"));
+}
+
+class ScreenTimeScreen extends StatelessWidget {
+  const ScreenTimeScreen({super.key});
+  @override Widget build(BuildContext context) => const Center(child: Text("Screen Time"));
 }
