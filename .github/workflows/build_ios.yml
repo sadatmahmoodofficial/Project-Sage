@@ -1,21 +1,15 @@
 name: Build Flutter iOS
 
 on:
-  workflow_dispatch: # Allows triggering the build manually from GitHub
+  workflow_dispatch:
 
 jobs:
   build-ios:
-    runs-on: macos-latest
+    runs-on: macos-14
 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
-
-      - name: Set up Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'zulu'
-          java-version: '17'
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
@@ -23,22 +17,16 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Install Dependencies
+      - name: Install Flutter Dependencies
         run: flutter pub get
 
-      - name: Install CocoaPods
-        run: |
-          cd ios
-          pod install
-          cd ..
-
-      - name: Build iOS App (No Codesign for testing)
+      - name: Build iOS App (Flutter generates Podfile & runs pods internally)
         run: flutter build ios --release --no-codesign
 
-      - name: Archive Payload into .ipa format
+      - name: Package into IPA
         run: |
           mkdir -p build/ios/iphoneos/Payload
-          mv build/ios/iphoneos/Runner.app build/ios/iphoneos/Payload/
+          cp -r build/ios/iphoneos/Runner.app build/ios/iphoneos/Payload/
           cd build/ios/iphoneos
           zip -r Sage-iOS.ipa Payload
 
