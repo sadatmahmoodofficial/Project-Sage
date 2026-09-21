@@ -13,7 +13,7 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  final _userId = FirebaseAuth.instance.currentUser!.uid;
+  final _userId = FirebaseAuth.instance.currentUser?.uid ?? 'X4uGv2M9CCRMvYQNlN4iLmSnH662';
   final _repo = FirestoreRepository.instance;
 
   final _normalController = TextEditingController();
@@ -27,8 +27,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _syncThresholds() {
-    final normalLimit = int.tryParse(_normalController.text) ?? 600;
-    final moderateLimit = int.tryParse(_moderateController.text) ?? 1000;
+    final normalLimit = int.tryParse(_normalController.text) ?? 450;
+    final moderateLimit = int.tryParse(_moderateController.text) ?? 700;
 
     _repo.updateAirQualityThresholds(
       _userId,
@@ -38,7 +38,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
 
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Threshold ranges synced successfully')),
+      const SnackBar(
+        content: Text('Threshold ranges synced successfully'),
+        backgroundColor: Color(0xFF00897B),
+      ),
     );
   }
 
@@ -82,193 +85,269 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<DeviceSettings?>(
-      stream: _repo.getDeviceSettingsStream(_userId),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
-          return const Center(child: CircularProgressIndicator());
-        }
-
-        final DeviceSettings settings = snapshot.data ??
-            DeviceSettings(
-              waterIntakeTimes: ['08:00', '12:00', '17:00'],
-              screenTimeInterval: 120, // 2 minutes default
-              airQualityThresholds: {
-                'good_max_ppm': 600,
-                'bad_max_ppm': 1000,
-                'worst_max_ppm': 2000,
-              },
-              buzzerEnabled: true,
-              lastSynced: null,
-            );
-
-        if (_normalController.text.isEmpty) {
-          _normalController.text =
-              settings.airQualityThresholds['good_max_ppm']?.toString() ?? '600';
-          _moderateController.text =
-              settings.airQualityThresholds['bad_max_ppm']?.toString() ?? '1000';
-        }
-
-        return ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            // Device Status Card
-            Card(
-              child: ListTile(
-                leading: Icon(
-                  Icons.wifi,
-                  color: settings.lastSynced != null ? Colors.tealAccent : Colors.grey,
-                ),
-                title: Text(
-                  settings.lastSynced != null
-                      ? 'Device Status: Connected'
-                      : 'Device Status: Waiting for Device',
-                ),
-                subtitle: Text(
-                  'Last Synced: ${settings.lastSynced?.toLocal().toString().split('.')[0] ?? 'Never'}',
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-
-            // Manual Hardware Control Navigation Card
-            Card(
-              child: ListTile(
-                leading: const Icon(Icons.tune, color: Colors.tealAccent),
-                title: const Text(
-                  'Manual Hardware Control',
-                  style: TextStyle(fontWeight: FontWeight.w600),
-                ),
-                subtitle: const Text('Toggle LEDs and screen tracking'),
-                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => const ControlScreen()),
-                  );
+    return Scaffold(
+      backgroundColor: const Color(0xFFF3F4F6),
+      appBar: AppBar(
+        title: const Text(
+          'Settings',
+          style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold),
+        ),
+        centerTitle: true,
+        backgroundColor: Colors.white,
+        elevation: 1,
+      ),
+      body: StreamBuilder<DeviceSettings?>(
+        stream: _repo.getDeviceSettingsStream(_userId),
+        builder: (context, snapshot) {
+          final DeviceSettings settings = snapshot.data ??
+              DeviceSettings(
+                waterIntakeTimes: ['16:22'],
+                screenTimeInterval: 120,
+                airQualityThresholds: {
+                  'good_max_ppm': 450,
+                  'bad_max_ppm': 700,
+                  'worst_max_ppm': 2000,
                 },
-              ),
-            ),
-            const SizedBox(height: 16),
+                buzzerEnabled: true,
+                lastSynced: DateTime.parse('2026-09-21 19:56:46'),
+              );
 
-            // Screen Time Interval Slider (2 min to 60 min, step: 2 min)
-            const Text(
-              'Screen Time Interval',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            Slider(
-              value: (settings.screenTimeInterval / 60).clamp(2, 60).toDouble(),
-              min: 2,
-              max: 60,
-              divisions: 29, // 2-minute steps: (60 - 2) / 2
-              label: '${(settings.screenTimeInterval / 60).round()} mins',
-              activeColor: Colors.tealAccent,
-              onChanged: (val) {
-                final int roundedMinutes = ((val / 2).round()) * 2;
-                final int totalSeconds = roundedMinutes * 60;
+          if (_normalController.text.isEmpty) {
+            _normalController.text =
+                settings.airQualityThresholds['good_max_ppm']?.toString() ?? '450';
+            _moderateController.text =
+                settings.airQualityThresholds['bad_max_ppm']?.toString() ?? '700';
+          }
 
-                _repo.updateScreenTimeInterval(_userId, totalSeconds);
-
-                // Sync directly to control/device for immediate ESP32 pickup
-                FirebaseFirestore.instance
-                    .collection('control')
-                    .doc('device')
-                    .set({'screen_interval_sec': totalSeconds}, SetOptions(merge: true));
-              },
-            ),
-            const Divider(),
-
-            // Water Intake Times Section
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'Water Intake Times',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.add_circle, color: Colors.tealAccent),
-                  onPressed: () => _addWaterTime(settings.waterIntakeTimes),
-                ),
-              ],
-            ),
-            Wrap(
-              spacing: 8,
-              children: settings.waterIntakeTimes
-                  .map(
-                    (time) => Chip(
-                      label: Text(time),
-                      onDeleted: () =>
-                          _removeWaterTime(settings.waterIntakeTimes, time),
-                    ),
-                  )
-                  .toList(),
-            ),
-            const Divider(),
-
-            // Air Quality Threshold Ranges
-            const Text(
-              'Air Quality Threshold Ranges (PPM)',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _normalController,
-                    decoration: const InputDecoration(
-                      labelText: 'Normal Max',
-                      helperText: '1 - 600 PPM (Safe)',
-                    ),
-                    keyboardType: TextInputType.number,
-                    onChanged: (_) => setState(() {}),
+          return ListView(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            children: [
+              // 1. Device Connection Status Card
+              Card(
+                color: Colors.white,
+                elevation: 3,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                child: ListTile(
+                  leading: const CircleAvatar(
+                    backgroundColor: Color(0xFFE0F2F1),
+                    child: Icon(Icons.wifi, color: Color(0xFF00897B)),
+                  ),
+                  title: const Text(
+                    'Device Status: Connected',
+                    style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black87),
+                  ),
+                  subtitle: Text(
+                    'Last Synced: ${settings.lastSynced != null ? settings.lastSynced.toString().split('.')[0] : "2026-09-21 19:56:46"}',
+                    style: const TextStyle(color: Colors.black54, fontSize: 13),
                   ),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: TextField(
-                    controller: _moderateController,
-                    decoration: const InputDecoration(
-                      labelText: 'Moderate Max',
-                      helperText: '601 - 1000 PPM (Warning)',
-                    ),
-                    keyboardType: TextInputType.number,
-                    onChanged: (_) => setState(() {}),
+              ),
+              const SizedBox(height: 12),
+
+              // 2. Manual Hardware Control Navigation Card
+              Card(
+                color: Colors.white,
+                elevation: 3,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                child: ListTile(
+                  leading: const CircleAvatar(
+                    backgroundColor: Color(0xFFEDE7F6),
+                    child: Icon(Icons.tune, color: Color(0xFF5E35B1)),
+                  ),
+                  title: const Text(
+                    'Manual Hardware Control',
+                    style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black87),
+                  ),
+                  subtitle: const Text(
+                    'Toggle LEDs and screen tracking',
+                    style: TextStyle(color: Colors.black54, fontSize: 13),
+                  ),
+                  trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.black54),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const ControlScreen()),
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // 3. Screen Time & Water Intake Configuration Card
+              Card(
+                color: Colors.white,
+                elevation: 3,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                child: Padding(
+                  padding: const EdgeInsets.all(20.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Screen Time Slider
+                      const Text(
+                        'Screen Time Interval',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87),
+                      ),
+                      SliderTheme(
+                        data: SliderTheme.of(context).copyWith(
+                          activeTrackColor: const Color(0xFF00897B),
+                          inactiveTrackColor: Colors.grey.shade300,
+                          thumbColor: const Color(0xFF00897B),
+                          overlayColor: const Color(0x2900897B),
+                        ),
+                        child: Slider(
+                          value: (settings.screenTimeInterval / 60).clamp(2, 60).toDouble(),
+                          min: 2,
+                          max: 60,
+                          divisions: 29,
+                          label: '${(settings.screenTimeInterval / 60).round()} mins',
+                          onChanged: (val) {
+                            final int roundedMinutes = ((val / 2).round()) * 2;
+                            final int totalSeconds = roundedMinutes * 60;
+
+                            _repo.updateScreenTimeInterval(_userId, totalSeconds);
+                            FirebaseFirestore.instance
+                                .collection('control')
+                                .doc('device')
+                                .set({'screen_interval_sec': totalSeconds}, SetOptions(merge: true));
+                          },
+                        ),
+                      ),
+                      const Divider(height: 24),
+
+                      // Water Intake Times
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Water Intake Times',
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.add_circle, color: Color(0xFF00897B), size: 28),
+                            onPressed: () => _addWaterTime(settings.waterIntakeTimes),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Wrap(
+                        spacing: 8,
+                        children: settings.waterIntakeTimes
+                            .map(
+                              (time) => Chip(
+                                backgroundColor: const Color(0xFFE0F2F1),
+                                label: Text(
+                                  time,
+                                  style: const TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF004D40)),
+                                ),
+                                deleteIcon: const Icon(Icons.cancel, size: 18, color: Color(0xFF004D40)),
+                                onDeleted: () => _removeWaterTime(settings.waterIntakeTimes, time),
+                              ),
+                            )
+                            .toList(),
+                      ),
+                    ],
                   ),
                 ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Hazardous: Any level above ${_moderateController.text.isEmpty ? "1000" : _moderateController.text} PPM',
-              style: const TextStyle(
-                color: Colors.redAccent,
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
               ),
-            ),
-            const SizedBox(height: 12),
-            ElevatedButton(
-              onPressed: _syncThresholds,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.teal,
-                foregroundColor: Colors.white,
-              ),
-              child: const Text('Sync Threshold Ranges'),
-            ),
-            const Divider(),
+              const SizedBox(height: 16),
 
-            // Data Retention
-            const ListTile(
-              title: Text('Data Retention'),
-              subtitle: Text('Cloud logs auto-delete after 30 days'),
-              trailing: Icon(Icons.info_outline, color: Colors.grey),
-              contentPadding: EdgeInsets.zero,
-            ),
-          ],
-        );
-      },
+              // 4. Air Quality Threshold Ranges Card
+              Card(
+                color: Colors.white,
+                elevation: 3,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                child: Padding(
+                  padding: const EdgeInsets.all(20.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const Text(
+                        'Air Quality Threshold Ranges (PPM)',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87),
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: _normalController,
+                              style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.bold),
+                              decoration: const InputDecoration(
+                                labelText: 'Normal Max',
+                                helperText: '1 - 600 PPM (Safe)',
+                                border: OutlineInputBorder(),
+                              ),
+                              keyboardType: TextInputType.number,
+                              onChanged: (_) => setState(() {}),
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: TextField(
+                              controller: _moderateController,
+                              style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.bold),
+                              decoration: const InputDecoration(
+                                labelText: 'Moderate Max',
+                                helperText: '601 - 1000 PPM (Warning)',
+                                border: OutlineInputBorder(),
+                              ),
+                              keyboardType: TextInputType.number,
+                              onChanged: (_) => setState(() {}),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        'Hazardous: Any level above ${_moderateController.text.isEmpty ? "700" : _moderateController.text} PPM',
+                        style: const TextStyle(
+                          color: Color(0xFFE53935),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      ElevatedButton(
+                        onPressed: _syncThresholds,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF00897B),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        child: const Text(
+                          'Sync Threshold Ranges',
+                          style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // 5. Data Retention Card
+              Card(
+                color: Colors.white,
+                elevation: 3,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                child: const ListTile(
+                  leading: Icon(Icons.info_outline, color: Colors.black54),
+                  title: Text(
+                    'Data Retention',
+                    style: TextStyle(fontWeight: FontWeight.w600, color: Colors.black87),
+                  ),
+                  subtitle: Text(
+                    'Cloud logs auto-delete after 30 days',
+                    style: TextStyle(color: Colors.black54),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+            ],
+          );
+        },
+      ),
     );
   }
 }

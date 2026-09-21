@@ -1,9 +1,12 @@
-import 'settings_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../services/firestore_repository.dart';
 import '../services/notification_service.dart';
-import '../models/air_quality_log.dart';
+import 'dashboard_screen.dart';
+import 'air_quality_screen.dart';
+import 'water_log_screen.dart';
+import 'screen_time_screen.dart';
+import 'settings_screen.dart';
 
 class MainNavigationScreen extends StatefulWidget {
   final User user;
@@ -16,48 +19,45 @@ class MainNavigationScreen extends StatefulWidget {
 class _MainNavigationScreenState extends State<MainNavigationScreen> {
   int _currentIndex = 0;
 
+  // Real screens with hardcoded telemetry and layout
+  final List<Widget> _screens = const [
+    DashboardScreen(),
+    AirQualityScreen(),
+    WaterScreen(),
+    ScreenTimeScreen(),
+    SettingsScreen(),
+  ];
+
   @override
   void initState() {
     super.initState();
     final userId = widget.user.uid;
-    // Ensure default settings exist in Firestore when a new user logs in
-    FirestoreRepository.instance.initializeDefaultSettings(widget.user.uid);
+
+    FirestoreRepository.instance.initializeDefaultSettings(userId);
 
     FirestoreRepository.instance.getAirQualityLogsStream(userId, limit: 1).listen((logs) {
-    if (logs.isNotEmpty) {
-      final latest = logs.first;
-      // Only alert if it's recent (within the last minute) to avoid spamming old logs on startup
-      if (latest.timestamp.isAfter(DateTime.now().subtract(const Duration(minutes: 1)))) {
-        if (latest.thresholdStatus == 'bad' || latest.thresholdStatus == 'worst') {
-          NotificationService.instance.showNotification(
-            id: 1,
-            title: 'Air Quality Alert!',
-            body: 'Air quality is ${latest.thresholdStatus} (${latest.ppmValue} PPM). Device buzzing now.',
-          );
+      if (logs.isNotEmpty) {
+        final latest = logs.first;
+        if (latest.timestamp.isAfter(DateTime.now().subtract(const Duration(minutes: 1)))) {
+          if (latest.thresholdStatus.toLowerCase() == 'bad' || latest.thresholdStatus.toLowerCase() == 'worst') {
+            NotificationService.instance.showNotification(
+              id: 1,
+              title: 'Air Quality Alert!',
+              body: 'Air quality is ${latest.thresholdStatus} (${latest.ppmValue} PPM). Device buzzing now.',
+            );
+          }
         }
       }
-    }
-  });
+    });
   }
-
-  // Placeholder screens for Phase 4, 5, and 6
-    final List<Widget> _screens = [
-        const DashboardScreen(),
-        const AirQualityScreen(),
-        const WaterLogScreen(),
-        const ScreenTimeScreen(),
-        const SettingsScreen(),
-    ];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("Sage Workspace"),
-        elevation: 0,
-        backgroundColor: Colors.transparent,
+      body: IndexedStack(
+        index: _currentIndex,
+        children: _screens,
       ),
-      body: _screens[_currentIndex],
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         type: BottomNavigationBarType.fixed,
@@ -79,24 +79,4 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       ),
     );
   }
-}
-
-class DashboardScreen extends StatelessWidget {
-  const DashboardScreen({super.key});
-  @override Widget build(BuildContext context) => const Center(child: Text("Dashboard"));
-}
-
-class AirQualityScreen extends StatelessWidget {
-  const AirQualityScreen({super.key});
-  @override Widget build(BuildContext context) => const Center(child: Text("Air Quality"));
-}
-
-class WaterLogScreen extends StatelessWidget {
-  const WaterLogScreen({super.key});
-  @override Widget build(BuildContext context) => const Center(child: Text("Water Log"));
-}
-
-class ScreenTimeScreen extends StatelessWidget {
-  const ScreenTimeScreen({super.key});
-  @override Widget build(BuildContext context) => const Center(child: Text("Screen Time"));
 }
